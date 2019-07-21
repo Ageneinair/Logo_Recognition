@@ -1,81 +1,89 @@
 import os
+import cv2
 import numpy as np
-from sklearn.preprocessing import LabelBinarizer
-from sklearn.model_selection import train_test_split
-from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential
-from keras.layers.convolutional import Conv2D
-from keras.layers.convolutional import MaxPooling2D
-from keras.layers.core import Activation
-from keras.layers.core import Flatten
-from keras.layers.core import Dense
-from keras.layers.core import Dropout
-from keras import backend as K
-from keras.optimizers import Adam,SGD,RMSprop
+import imutils
+from keras.models import load_model
+from imutils.object_detection import non_max_suppression
+from utils import sliding_window
+from utils import image_pyramid
+from utils import logo_prediction
 
+INPUT_SIZE = (300, 300)
+PYR_SCALE = 1.5
+WIN_STEP = 32
+ROI_SIZE = (64, 64)
 
-HEIGHT, WIDTH = (64, 64)
-
-def get_data():
-    data = []
-    labels = []
-    for img in os.listdir("./data/new_dataset/"):
-        img_file = cv2.imread(os.path.join("./data/new_dataset/",img))
-        data.append(img_file)
-        labels.append(img.split("_")[1].split(".")[0])
-    data = np.stack(data)
-    labels = np.stack(labels)
-    # generate OneHot encoding
-    le = LabelBinarizer()
-    labels = le.fit_transform(labels)
-    
-    return data/255, labels
-
-def def_model():
-    model = Sequential()
-    inputShape = (HEIGHT, WIDTH, 3)
-
-    model.add(Conv2D(16, (3, 3), padding="same",input_shape=inputShape))
-    model.add(Activation("relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-
-    model.add(Conv2D(32, (3, 3), padding="same"))
-    model.add(Activation("relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-
-    model.add(Conv2D(64, (3, 3), padding="same"))
-    model.add(Activation("relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-
-    model.add(Flatten())
-    model.add(Dense(500))
-    model.add(Activation("relu"))
-    model.add(Dropout(0.25))
-
-    model.add(Dense(len(CLASSNAME)))
-    model.add(Activation("softmax"))
-
-    return(model)
+labels = {}
 
 if __name__ == "__main__":
-    data, lables = get_data()
-    X,testX,y,testy = train_test_split(data, labels,test_size=0.1,stratify=labels,random_state=42)
-    # data augmentation
-    aug = ImageDataGenerator(rotation_range=18, zoom_range=0.15,
-        width_shift_range=0.2, height_shift_range=0.2, shear_range=0.15,
-        horizontal_flip=True, fill_mode="nearest")
-    gen_flow=aug.flow(X, y,batch_size=64,seed=0)
-    validation=aug.flow(testX,testy,batch_size=32,seed=0)
-    
-    model = def_model()
-    # set optimizer
-    opt = RMSprop(lr=0.001, rho=0.9)
-    model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
+    # load model
+    model = load_model('2019-07-21_01:26:40model.h5')
 
-    history=model.fit_generator(gen_flow,
-                                steps_per_epoch=len(X) // 32,
-                                validation_data=validation,
-                                validation_steps=len(testX) // 32,
-                                epochs=100,
-                                verbose=1)
-    
+    img_file = "1.jpeg"
+    orig = cv2.imread(img_file)
+    # resize the input image to be a square
+    resized = cv2.resize(orig, INPUT_SIZE, interpolation=cv2.INTER_CUBIC)
+
+    # initialize the batch ROIs and (x, y)-coordinates
+    batchROIs = None
+    batchLocs = []
+    # loop over the image pyramid
+    for image in image_pyramid(resized, scale=PYR_SCALE,minSize=ROI_SIZE):
+        # loop over the sliding window locations
+        for (x, y, roi) in sliding_window(resized, WIN_STEP, ROI_SIZE):
+            # take the ROI and pre-process it so we can later classify the
+            # region with Keras
+            #roi = img_to_array(roi)
+            roi = roi/255
+            roi = np.expand_dims(roi, axis=0)
+            # roi = imagenet_utils.preprocess_input(roi)
+
+            # if the batch is None, initialize it
+            if batchROIs is None:
+                batchROIs = roi
+
+            # otherwise, add the ROI to the bottom of the batch
+            else:
+                batchROIs = np.vstack([batchROIs, roi])
+
+            # add the (x, y)-coordinates of the sliding window to the batch
+            batchLocs.append((x, y))
+
+
+        # classify the batch, then reset the batch ROIs and
+        # (x, y)-coordinates
+        model.predict(batchROIs)
+        labels = logo_prediction(model, batchROIs, batchLocs,labels, minProb=0.999999)
+
+    # loop over the labels for each of detected objects in the image
+    for k in labels.keys():
+        # clone the input image so we can draw on it
+        clone = resized.copy()
+
+        # loop over all bounding boxes for the label and draw them on
+        # the image
+    # 	for (box, prob) in labels[k]:
+    # 		(xA, yA, xB, yB) = box
+    # 		cv2.rectangle(clone, (xA, yA), (xB, yB), (0, 255, 0), 2)
+
+    # 	# show the image *without* apply non-maxima suppression
+    # 	cv2.imshow("Without NMS", clone)
+    # 	clone = resized.copy()
+
+        # grab the bounding boxes and associated probabilities for each
+        # detection, then apply non-maxima suppression to suppress
+        # weaker, overlapping detections
+        boxes = np.array([p[0] for p in labels[k]])
+        proba = np.array([p[1] for p in labels[k]])
+        boxes = non_max_suppression(boxes, proba)
+
+        # loop over the bounding boxes again, this time only drawing the
+        # ones that were *not* suppressed
+        for (xA, yA, xB, yB) in boxes:
+            cv2.rectangle(clone, (xA, yA), (xB, yB), (0, 0, 255), 2)
+
+        # show the output image
+        print("[INFO] {}: {}".format(k, len(boxes)))
+        cv2.imwrite('result.png',clone)
+        #cv2.waitKey(0)
+
