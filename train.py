@@ -44,7 +44,7 @@ if __name__ == "__main__":
                                 steps_per_epoch=len(X) // 32,
                                 validation_data=validation,
                                 validation_steps=len(testX) // 32,
-                                epochs=5,
+                                epochs=100,
                                 verbose=1)
   
     # save model
