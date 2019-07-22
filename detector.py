@@ -10,14 +10,14 @@ from utils import logo_prediction
 
 INPUT_SIZE = (300, 300)
 PYR_SCALE = 1.5
-WIN_STEP = 32
+WIN_STEP = 10
 ROI_SIZE = (64, 64)
 
 labels = {}
 
 if __name__ == "__main__":
     # load model
-    model = load_model('2019-07-21_01:26:40model.h5')
+    model = load_model('2019-07-22_02_54_28model.h5')
 
     img_file = "1.jpeg"
     orig = cv2.imread(img_file)
@@ -31,12 +31,8 @@ if __name__ == "__main__":
     for image in image_pyramid(resized, scale=PYR_SCALE,minSize=ROI_SIZE):
         # loop over the sliding window locations
         for (x, y, roi) in sliding_window(resized, WIN_STEP, ROI_SIZE):
-            # take the ROI and pre-process it so we can later classify the
-            # region with Keras
-            #roi = img_to_array(roi)
             roi = roi/255
             roi = np.expand_dims(roi, axis=0)
-            # roi = imagenet_utils.preprocess_input(roi)
 
             # if the batch is None, initialize it
             if batchROIs is None:
@@ -60,27 +56,15 @@ if __name__ == "__main__":
         # clone the input image so we can draw on it
         clone = resized.copy()
 
-        # loop over all bounding boxes for the label and draw them on
-        # the image
-    # 	for (box, prob) in labels[k]:
-    # 		(xA, yA, xB, yB) = box
-    # 		cv2.rectangle(clone, (xA, yA), (xB, yB), (0, 255, 0), 2)
-
-    # 	# show the image *without* apply non-maxima suppression
-    # 	cv2.imshow("Without NMS", clone)
-    # 	clone = resized.copy()
-
         # grab the bounding boxes and associated probabilities for each
         # detection, then apply non-maxima suppression to suppress
         # weaker, overlapping detections
         boxes = np.array([p[0] for p in labels[k]])
         proba = np.array([p[1] for p in labels[k]])
-        boxes = non_max_suppression(boxes, proba)
+        boxes = non_max_suppression(boxes, proba, 0.8)
 
-        # loop over the bounding boxes again, this time only drawing the
-        # ones that were *not* suppressed
-        for (xA, yA, xB, yB) in boxes:
-            cv2.rectangle(clone, (xA, yA), (xB, yB), (0, 0, 255), 2)
+        for (x1, y1, x2, y2) in boxes:
+            cv2.rectangle(clone, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
         # show the output image
         print("[INFO] {}: {}".format(k, len(boxes)))
