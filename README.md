@@ -8,18 +8,18 @@ The dataset I used is [Flickr Logos 27 dataset](http://image.ntua.gr/iva/dataset
 
 ## Demo
 
-###original:
+### original:
 ![Screenshot](demo/1.jpeg)
 
-###aftet detector:
+### aftet detector:
 ![Screenshot](demo/result1.png)
 
 
 
-###original:
+### original:
 ![Screenshot](demo/2.png)
 
-###aftet detector:
+### aftet detector:
 ![Screenshot](demo/result2.png)
 
 
