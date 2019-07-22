@@ -7,7 +7,7 @@ from keras.layers.core import Dense
 from keras.layers.core import Dropout
 from keras import backend as K
 
-HEIGHT, WIDTH, CLASSNUM = (64, 64, 27)
+HEIGHT, WIDTH, CLASSNUM = (64, 64, 3)
 
 def def_model():
     model = Sequential()
