@@ -22,7 +22,7 @@ def get_data():
     # generate OneHot encoding
     le = LabelBinarizer()
     labels = le.fit_transform(labels)
-    
+    print(le.classes_)
     return data/255, labels
 
 if __name__ == "__main__":
