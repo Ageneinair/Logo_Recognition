@@ -11,21 +11,15 @@ def sliding_window(image, step, ws):
 			yield (x, y, image[y:y + ws[1], x:x + ws[0]])
 
 def image_pyramid(image, scale=1.5, minSize=(64, 64)):
-	# yield the original image
 	yield image
 
-	# keep looping over the image pyramid
 	while True:
-		# compute the dimensions of the next image in the pyramid
 		w = int(image.shape[1] / scale)
 		image = imutils.resize(image, width=w)
 
-		# if the resized image does not meet the supplied minimum
-		# size, then stop constructing the pyramid
 		if image.shape[0] < minSize[1] or image.shape[1] < minSize[0]:
 			break
 
-		# yield the next image in the pyramid
 		yield image
 
 def logo_prediction(model, batchROIs, batchLocs, labels, minProb=0.5,dims=(64, 64)):
@@ -35,8 +29,7 @@ def logo_prediction(model, batchROIs, batchLocs, labels, minProb=0.5,dims=(64, 6
         if prob > 0.5:
             index = np.argmax(preds[i])
             label = CLASS_NAMES[int(index)]
-            # grab the coordinates of the sliding window for
-            # the prediction and construct the bounding box
+
             (pX, pY) = batchLocs[i]
             box = (pX, pY, pX + dims[0], pY + dims[1])
             L = labels.get(label, [])
